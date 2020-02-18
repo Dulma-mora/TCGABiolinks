@@ -2,10 +2,10 @@ library(TCGAbiolinks)
 library(Biobase)
 library(SummarizedExperiment)
 
-
-
 #LA CAGUE
 #---
+
+if()
 
 query_mirna <- GDCquery(project = "TCGA-BRCA",
                               data.category = "Transcriptome Profiling",
@@ -13,7 +13,7 @@ query_mirna <- GDCquery(project = "TCGA-BRCA",
                               sample.type = "Primary solid Tumor")
 
 GDCdownload(query_mirna)
-data_mirna <- GDCprepare(query_no_mutation, save = TRUE)
+data_mirna <- GDCprepare(query_mirna, save = TRUE)
 
 #--
 ####1: OBTENER PACIENTES QUE NO TIENEN MUTACIONES
@@ -48,7 +48,6 @@ mirnaPERRRON <- mirnaPERRRON[,-c(1)]
 uncommon_filtrados <- mirnaPERRRON[,colnames(mirnaPERRRON)%in% colnames(uncommon_symbol)]
 uncommon_filtrados
 
-
 as.data.frame(uncommon_filtrados)
 #########NOTA: HACER UN DATAFRAME PARA CADA GRUPO
 
@@ -67,14 +66,15 @@ matrix_nomutation <- mirnaPERRRON[,id] #no ideal pero sí salío lol
 matrix_mutation <- mirnaPERRRON[,colnames(mirnaPERRRON) %in% id_mutation] #index
 
 
-    #---Creando control
+
+    ###---CREANDO CONTROL
 query_control <- GDCquery(project = "TCGA-BRCA",
                         data.category = "Transcriptome Profiling",
                         data.type = "miRNA Expression Quantification",
                         sample.type = "Solid Tissue Normal")
 
 GDCdownload(query_control)
-data_control <- GDCprepare(query_no_mutation, save = TRUE)
+data_control <- GDCprepare(query_control, save = TRUE)
 
 rownames(data_control) <- data_control$miRNA_ID
    
@@ -87,6 +87,7 @@ vacio_control <- substr(vacio_control, 1, 12)
 
 colnames(control) <-vacio_control
 rownames(control) <- data_control$miRNA_ID
+
 
 ###---Expresión diferencial 
 library(DESeq2)
@@ -166,6 +167,9 @@ names(resdata_nomutation_mutation)[1] <- "Gene"
 head(resdata_nomutation_mutation)
 ## Escribir resultados
 write.csv(resdata, file="diffexpr-mutationVSnomutation.csv")
+
+
+###HASTA AQUÍ BIEN
 
                     ####NORMAL VS NO MUTACION (2)
 
