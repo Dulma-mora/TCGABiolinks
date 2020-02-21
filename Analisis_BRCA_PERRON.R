@@ -5,8 +5,6 @@ library(SummarizedExperiment)
 #LA CAGUE
 #---
 
-if()
-
 query_mirna <- GDCquery(project = "TCGA-BRCA",
                               data.category = "Transcriptome Profiling",
                               data.type = "miRNA Expression Quantification",
@@ -52,6 +50,8 @@ as.data.frame(uncommon_filtrados)
 #########NOTA: HACER UN DATAFRAME PARA CADA GRUPO
 
 #ID de uncommon y no uncommon (mutacione y sin mutaciones)
+####UNCOMMON NO TIENEN MUTACIONES
+
 id <- colnames(uncommon_symbol)
 id <- id[-c(1,2,length(id))] #no mutación
 
@@ -89,7 +89,7 @@ colnames(control) <-vacio_control
 rownames(control) <- data_control$miRNA_ID
 
 
-###---Expresión diferencial 
+###---Expresión diferencial---###
 library(DESeq2)
 
 grupoa <- "normal"
@@ -132,14 +132,15 @@ head(resdata)
 write.csv(resdata, file="diffexpr-controlVStumor.csv")
 
                   ####NO MUTACION VS MUTACION (1)
+
 grupomutation <- "mutation"
 gruponomutation <- "no_mutation"
 
 numero_grupo_mutation <- ncol(matrix_mutation)
 numero_grupo_no_mutation <- ncol(matrix_nomutation)
 
-matrix_tumor <- cbind(matrix_nomutation,matrix_mutation)
-countdata_nomutation_mutation <- matrix_tumor 
+matrix_nomutation_mutation <- cbind(matrix_nomutation,matrix_mutation)
+countdata_nomutation_mutation <- matrix_nomutation_mutation 
 countdata_nomutation_mutation <- as.matrix(countdata_nomutation_mutation) 
 
 
@@ -170,6 +171,7 @@ write.csv(resdata, file="diffexpr-mutationVSnomutation.csv")
 
 
 ###HASTA AQUÍ BIEN
+#Aquí empieza el cagadero
 
                     ####NORMAL VS NO MUTACION (2)
 
@@ -179,40 +181,83 @@ gruponomutation2 <- "no_mutation"
 no_normal <- ncol(control)
 no_no_mutation <- ncol(matrix_nomutation)
 
+#Dudoso
 matrix_normal_nomutation <- cbind(control,matrix_nomutation)
 countdata_normal_nomutation <- matrix_normal_nomutation
 countdata_normal_nomutation <- as.matrix(countdata_normal_nomutation) 
 
 (condition_normal_nomutation <- factor(c( rep(c(gruponormal,gruponomutation2),
                                      c(no_normal,no_no_mutation)))))
-#
+#Hay un paciente repetido
+colnames(countdata_normal_nomutation) <- make.unique(colnames(countdata_normal_nomutation))
+
 (coldata_normal_nomutation <- data.frame(row.names=colnames(countdata_normal_nomutation), 
                                          condition_normal_nomutation))
 
 dds_normal_nomutation <- DESeqDataSetFromMatrix(countData=countdata_normal_nomutation,
                       colData=coldata_normal_nomutation, design=~condition_normal_nomutation)
 
-dds_mutation
+dds_normal_nomutation
 
-dds_mutation$condition_mutation <- relevel(dds_mutation$condition_mutation, ref=grupomutation)
-dds_mutation <- DESeq(dds_mutation)
+dds_normal_nomutation$condition_normal_nomutation <- relevel(dds_normal_nomutation$condition_normal_nomutation, ref=gruponormal)
+dds_normal_nomutation <- DESeq(dds_normal_nomutation)
 
 # Obtener los datos de Differential Expression
-res_mutation <- results(dds_mutation)
-table(res_mutation$padj<0.05)
+res_normal_nomutation <- results(dds_normal_nomutation)
+table(res_normal_nomutation$padj<0.05)
 ## Ordenar por adjusted p-value
-res_mutation <- res_mutation[order(res_mutation$padj), ]
+res_normal_nomutation <- res_normal_nomutation[order(res_normal_nomutation$padj), ]
 ## Unir con los datos de counts
-resdata_mutation <- merge(as.data.frame(res_mutation), as.data.frame(counts(dds_mutation, normalized=TRUE)), by="row.names", sort=FALSE)
-names(resdata_mutation)[1] <- "Gene"
-head(resdata_mutation)
+resdata_normal_nomutation <- merge(as.data.frame(res_normal_nomutation), as.data.frame(counts(dds_normal_nomutation, normalized=TRUE)), by="row.names", sort=FALSE)
+names(resdata_normal_nomutation)[1] <- "Gene"
+head(resdata_normal_nomutation)
 ## Escribir resultados
-write.csv(resdata, file="diffexpr-mutationVSnomutation.csv")
-
+write.csv(resdata, file="diffexpr-controlVSnomutation.csv")
 
 
 ####NORMAL VS MUTACION (3)
 
+grupo_normal <- "normal"
+grupo_mutation <- "mutation"
+
+numero_normal <- ncol(control)
+no_mutation <- ncol(matrix_mutation)
+
+matrix_normal_mutation <- cbind(control,matrix_mutation)
+countdata_normal_mutation <- matrix_normal_mutation 
+countdata_normal_mutation <- as.matrix(countdata_normal_mutation) 
+
+
+(condition_normal_mutation <- factor(c(rep(c(grupo_normal,grupo_mutation),
+                                                c(numero_normal,no_mutation)))))
+
+(coldata_normal_mutation <- data.frame(row.names=colnames(countdata_normal_mutation), condition_normal_mutation))
+dds_normal_mutation <- DESeqDataSetFromMatrix(countData=countdata_normal_mutation, 
+                                                  colData=coldata_normal_mutation, design=~condition_normal_mutation)
+
+dds_normal_mutation
+
+dds_normal_mutation$condition_normal_mutation <- relevel(dds_normal_mutation$condition_normal_mutation, 
+                                                                 ref=grupo_normal)
+dds_normal_mutation <- DESeq(dds_normal_mutation)
+
+# Obtener los datos de Differential Expression
+res_normal_mutation <- results(dds_normal_mutation)
+table(res_normal_mutation$padj<0.05)
+## Ordenar por adjusted p-value
+res_normal_mutation <- res_normal_mutation[order(res_normal_mutation$padj), ]
+## Unir con los datos de counts
+resdata_normal_mutation <- merge(as.data.frame(res_normal_mutation), 
+                                 as.data.frame(counts(dds_normal_mutation, normalized=TRUE)), 
+                                 by="row.names", sort=FALSE)
+names(resdata_normal_mutation)[1] <- "Gene"
+head(resdata_normal_mutation)
+## Escribir resultados
+write.csv(resdata, file="diffexpr-normalVSmutation.csv")
+
+
+
+  
 ####SE COMPARTEN MIRNAS ENTRE 3Y2? Y ENTRE 1 Y LAS OTRAS?
 
 ####DIAGRAMA DE VENN DE LAS COMPARACIONES
