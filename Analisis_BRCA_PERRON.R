@@ -2,8 +2,7 @@ library(TCGAbiolinks)
 library(Biobase)
 library(SummarizedExperiment)
 
-#LA CAGUE
-#---
+# Query miRNA -------------------------------------------------------------
 
 query_mirna <- GDCquery(project = "TCGA-BRCA",
                               data.category = "Transcriptome Profiling",
@@ -13,7 +12,8 @@ query_mirna <- GDCquery(project = "TCGA-BRCA",
 GDCdownload(query_mirna)
 data_mirna <- GDCprepare(query_mirna, save = TRUE)
 
-#--
+# Data frame --------------------------------------------------------------
+
 ####1: OBTENER PACIENTES QUE NO TIENEN MUTACIONES
 uncommon_symbol <- read.csv("uncommon_symbol.csv")
 correccion <- gsub(".", "-", colnames(uncommon_symbol), fixed = TRUE)
@@ -65,7 +65,7 @@ matrix_nomutation <- mirnaPERRRON[,id] #no ideal pero sí salío lol
     #--- Con mutaciones
 matrix_mutation <- mirnaPERRRON[,colnames(mirnaPERRRON) %in% id_mutation] #index
 
-
+# Creando Control ---------------------------------------------------------
 
     ###---CREANDO CONTROL
 query_control <- GDCquery(project = "TCGA-BRCA",
@@ -89,7 +89,8 @@ colnames(control) <-vacio_control
 rownames(control) <- data_control$miRNA_ID
 
 
-###---Expresión diferencial---###
+# Expresión diferencial ---------------------------------------------------
+
 library(DESeq2)
 
 grupoa <- "normal"
@@ -113,11 +114,6 @@ dds
 
 dds$condition <- relevel(dds$condition, ref=grupoa)
 dds <- DESeq(dds)
-
-# Regularizar la transformacion de log en rlog para poder graficar en heatmap
-#rld <- rlogTransformation(dds)
-# Extraer la transformacion del s4class rld
-#rld3 <- as.matrix(t(assay(rld)))
 
 # Obtener los datos de Differential Expression
 res <- results(dds)
@@ -167,8 +163,7 @@ resdata_nomutation_mutation <- merge(as.data.frame(res_nomutation_mutation), as.
 names(resdata_nomutation_mutation)[1] <- "Gene"
 head(resdata_nomutation_mutation)
 ## Escribir resultados
-write.csv(resdata, file="diffexpr-mutationVSnomutation.csv")
-
+write.csv(resdata_nomutation_mutation, file="diffexpr-mutationVSnomutation.csv")
 
 ###HASTA AQUÍ BIEN
 #Aquí empieza el cagadero
@@ -212,7 +207,7 @@ resdata_normal_nomutation <- merge(as.data.frame(res_normal_nomutation), as.data
 names(resdata_normal_nomutation)[1] <- "Gene"
 head(resdata_normal_nomutation)
 ## Escribir resultados
-write.csv(resdata, file="diffexpr-controlVSnomutation.csv")
+write.csv(resdata_normal_nomutation, file="diffexpr-controlVSnomutation.csv")
 
 
 ####NORMAL VS MUTACION (3)
@@ -230,13 +225,15 @@ countdata_normal_mutation <- as.matrix(countdata_normal_mutation)
 
 (condition_normal_mutation <- factor(c(rep(c(grupo_normal,grupo_mutation),
                                                 c(numero_normal,no_mutation)))))
+#rownames duplicados
+colnames(countdata_normal_mutation) <- make.unique(colnames(countdata_normal_mutation))
 
 (coldata_normal_mutation <- data.frame(row.names=colnames(countdata_normal_mutation), condition_normal_mutation))
 dds_normal_mutation <- DESeqDataSetFromMatrix(countData=countdata_normal_mutation, 
                                                   colData=coldata_normal_mutation, design=~condition_normal_mutation)
 
 dds_normal_mutation
-
+  
 dds_normal_mutation$condition_normal_mutation <- relevel(dds_normal_mutation$condition_normal_mutation, 
                                                                  ref=grupo_normal)
 dds_normal_mutation <- DESeq(dds_normal_mutation)
@@ -253,14 +250,58 @@ resdata_normal_mutation <- merge(as.data.frame(res_normal_mutation),
 names(resdata_normal_mutation)[1] <- "Gene"
 head(resdata_normal_mutation)
 ## Escribir resultados
-write.csv(resdata, file="diffexpr-normalVSmutation.csv")
+write.csv(resdata_normal_mutation, file="diffexpr-normalVSmutation.csv")
 
+#Escribir resultados significativos  
 
+#3
+signif_normal_mutation <- resdata_normal_mutation[resdata_normal_mutation$padj< 0.05,]
+  write.csv(signif_normal_mutation, file = "signif_normalVSmutation.csv")
 
-  
+#2
+signif_normal_nomutation <- resdata_normal_nomutation[resdata_normal_nomutation$padj < 0.05,]
+  write.csv(signif_normal_nomutation, file = "signif_normalVSnomutation.csv")
+
+#1
+signif_nomutation_mutation <- resdata_nomutation_mutation[resdata_nomutation_mutation$padj < 0.05,]
+  write.csv(signif_nomutation_mutation, file = "signif_nomutationVSmutation.csv")
+    
+# miRNAs compartidos ------------------------------------------------------
+
 ####SE COMPARTEN MIRNAS ENTRE 3Y2? Y ENTRE 1 Y LAS OTRAS?
+# 3 y 2 == normal_mutation VS normal_nomutation
+# 1 y 2 == nomutation_mutation VS normal_nomutation
+# 1 y 3 == nomutation_mutation VS normal_mutation
+
+  #---Filtrando por P. Value
+significativos_1 <- resdata_nomutation_mutation[resdata_nomutation_mutation$padj < 0.05,]
+significativos_2 <- resdata_normal_nomutation[resdata_normal_nomutation$padj < 0.05,]
+significativos_3 <- resdata_normal_mutation[resdata_normal_mutation$padj < 0.05,]
+
+  #---Extraer compartidos
+
+compartidos_3y2 <- intersect(as.character(significativos_3$Gene),
+                                    as.character(significativos_2$Gene))
+
+compartidos_1y2 <- intersect(as.character(significativos_1$Gene),
+                             as.character(significativos_2$Gene))
+
+compartidos_1y3 <- intersect(as.character(significativos_1$Gene),
+                             as.character(significativos_3))
+
+write.table(compartidos_3y2, file="compartidos_3y2.txt")
+write.csv(compartidos_1y2, file="compartidos_1y2.csv")
+write.csv(compartidos_1y3, file="compartidos_1y3.csv")
+
+# Diagrama de Venn --------------------------------------------------------
 
 ####DIAGRAMA DE VENN DE LAS COMPARACIONES
+
+
+
+
+
+
 
 
 
